@@ -1,0 +1,29 @@
+{
+  "hero.brand": "Boszikoszt",
+  "hero.tagline": "Authentic Hungarian food – made with love",
+  "hero.appNotice": "We are moving to a mobile app – launching on Android, 1st September!",
+  "hero.testerCta": "Want to become a tester? Click here.",
+
+  "testerModal.title": "Tester Access",
+  "testerModal.subtitle": "Enter the PIN to access the tester signup.",
+  "testerModal.pinLabel": "PIN",
+  "testerModal.pinPlaceholder": "Enter PIN",
+  "testerModal.submit": "Continue",
+  "testerModal.checking": "Checking…",
+  "testerModal.cancel": "Cancel",
+  "testerModal.close": "Close",
+  "testerModal.successText": "Success! Choose your platform with the buttons below:",
+
+  "testerModal.remaining": "Attempts",
+  "testerModal.tryAgainIn": "Try again in",
+  "testerModal.lockedFor": "Locked for",
+  "testerModal.limitNote": "2s delay / max 5 tries",
+
+  "testerModal.errorEmpty": "Please enter the PIN.",
+  "testerModal.errorInvalid": "Invalid PIN.",
+  "testerModal.errorCooldown": "Too fast. Wait 2 seconds.",
+  "testerModal.errorLocked": "Too many attempts. Temporarily locked.",
+  "testerModal.errorNetwork": "Network error. Please try again.",
+  "testerModal.downloadAndroid": "Download Android app",
+  "testerModal.downloadIOS": "Download iOS app"
+}
