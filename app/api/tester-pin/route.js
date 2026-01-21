@@ -1,21 +1,56 @@
+// app/api/tester-pin/route.js
+
 import { NextResponse } from "next/server";
 
-// Basic in-memory limiter (works well in dev / single instance).
-// On serverless it may reset between invocations. For production, use Upstash/Redis.
+// ========= Rate limit for PIN attempts =========
 const attemptsByIp = new Map();
-
 /**
- * attemptsByIp structure:
+ * attemptsByIp:
  * ip -> { count: number, lastAttemptMs: number, lockedUntilMs: number }
  */
+
+// ========= Download token store (in-memory) =========
+// token -> { ip: string, platform: "android"|"ios", expiresAtMs: number, used: boolean }
+const downloadTokens = new Map();
+
+// Token settings
+const TOKEN_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
 function getClientIp(req) {
-  // Vercel/Proxies commonly set x-forwarded-for
   const xff = req.headers.get("x-forwarded-for");
   if (xff) return xff.split(",")[0].trim();
   return "unknown";
 }
 
+function issueDownloadToken({ ip, platform }) {
+  const token =
+    typeof crypto !== "undefined" && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+  downloadTokens.set(token, {
+    ip,
+    platform,
+    expiresAtMs: Date.now() + TOKEN_TTL_MS,
+    used: false,
+  });
+
+  return token;
+}
+
+// Optional: tiny cleanup so the map doesn't grow forever
+function cleanupExpiredTokens() {
+  const now = Date.now();
+  for (const [token, meta] of downloadTokens.entries()) {
+    if (!meta || meta.used || meta.expiresAtMs <= now) {
+      downloadTokens.delete(token);
+    }
+  }
+}
+
 export async function POST(req) {
+  cleanupExpiredTokens();
+
   const ip = getClientIp(req);
   const now = Date.now();
 
@@ -43,15 +78,26 @@ export async function POST(req) {
 
   record.lastAttemptMs = now;
 
-  const { pin } = await req.json().catch(() => ({ pin: "" }));
-  const expected = process.env.TESTER_PIN || "";
+  const body = await req.json().catch(() => ({}));
+  const incomingPin = String(body?.pin ?? "").trim();
+  const expected = String(process.env.TESTER_PIN ?? "").trim();
 
-  const isOk = typeof pin === "string" && expected && pin === expected;
+  const isOk = expected.length > 0 && incomingPin === expected;
 
   if (isOk) {
-    // reset on success
+    // reset attempt limiter on success
     attemptsByIp.delete(ip);
-    return NextResponse.json({ ok: true });
+
+    // issue short-lived tokens for downloads
+    const androidToken = issueDownloadToken({ ip, platform: "android" });
+    const iosToken = issueDownloadToken({ ip, platform: "ios" });
+
+    return NextResponse.json({
+      ok: true,
+      androidToken,
+      iosToken,
+      TOKEN_TTL_MS,
+    });
   }
 
   // failed attempt
@@ -69,3 +115,5 @@ export async function POST(req) {
     { status: 401 }
   );
 }
+
+export { downloadTokens };

@@ -1,3 +1,5 @@
+// app/components/TesterPinModal.js
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -13,6 +15,8 @@ export default function TesterPinModal({ open, onClose }) {
 
   const [cooldownUntil, setCooldownUntil] = useState(0);
   const [lockedUntil, setLockedUntil] = useState(0);
+
+  const [androidToken, setAndroidToken] = useState("");
 
   const now = Date.now();
   const isCoolingDown = now < cooldownUntil;
@@ -36,6 +40,7 @@ export default function TesterPinModal({ open, onClose }) {
       setRemaining(5);
       setCooldownUntil(0);
       setLockedUntil(0);
+      setAndroidToken("");
     }
   }, [open]);
 
@@ -74,9 +79,10 @@ export default function TesterPinModal({ open, onClose }) {
       const data = await res.json().catch(() => ({}));
 
       if (res.ok && data.ok) {
+        setAndroidToken(String(data.androidToken || ""));
         setStatus("success");
         setErrorMsg("");
-        return; // IMPORTANT: don't close modal
+        return;
       }
 
       // rate limits
@@ -99,9 +105,7 @@ export default function TesterPinModal({ open, onClose }) {
 
       // invalid pin
       const nextRemaining =
-        typeof data?.remaining === "number"
-          ? data.remaining
-          : Math.max(0, remaining - 1);
+        typeof data?.remaining === "number" ? data.remaining : Math.max(0, remaining - 1);
 
       setRemaining(nextRemaining);
 
@@ -120,6 +124,10 @@ export default function TesterPinModal({ open, onClose }) {
   }
 
   if (!open) return null;
+
+  const androidHref = androidToken
+    ? `/api/download/android?token=${encodeURIComponent(androidToken)}`
+    : "#";
 
   return (
     <div className="fixed inset-0 z-[999] flex items-center justify-center px-4">
@@ -146,26 +154,16 @@ export default function TesterPinModal({ open, onClose }) {
           </button>
         </div>
 
-        {/* SUCCESS UI */}
         {status === "success" ? (
           <div className="mt-6 space-y-3">
             <p className="text-sm text-gray-200">{t("testerModal.successText")}</p>
 
             <a
-              href="/downloads/boszikoszt-android.apk"
+              href={androidHref}
               className="block w-full text-center rounded-xl bg-green-600 py-3 font-semibold text-white hover:bg-green-700 transition"
-              download
             >
               {t("testerModal.downloadAndroid")}
             </a>
-
-            {/* <a
-              href="/downloads/boszikoszt-ios.ipa"
-              className="block w-full text-center rounded-xl bg-blue-600 py-3 font-semibold text-white hover:bg-blue-700 transition"
-              download
-            >
-              {t("testerModal.downloadIOS")}
-            </a> */}
 
             <button
               type="button"
@@ -176,7 +174,6 @@ export default function TesterPinModal({ open, onClose }) {
             </button>
           </div>
         ) : (
-          // PIN FORM UI
           <form onSubmit={handleSubmit} className="mt-5 space-y-4">
             <div>
               <label className="block text-sm text-gray-300 mb-2">
