@@ -1,6 +1,5 @@
-// app/api/tester-pin/route.js
-
 import { NextResponse } from "next/server";
+import crypto from "node:crypto";
 
 // ========= Rate limit for PIN attempts =========
 const attemptsByIp = new Map();
@@ -9,11 +8,6 @@ const attemptsByIp = new Map();
  * ip -> { count: number, lastAttemptMs: number, lockedUntilMs: number }
  */
 
-// ========= Download token store (in-memory) =========
-// token -> { ip: string, platform: "android"|"ios", expiresAtMs: number, used: boolean }
-const downloadTokens = new Map();
-
-// Token settings
 const TOKEN_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 function getClientIp(req) {
@@ -22,35 +16,40 @@ function getClientIp(req) {
   return "unknown";
 }
 
-function issueDownloadToken({ ip, platform }) {
-  const token =
-    typeof crypto !== "undefined" && crypto.randomUUID
-      ? crypto.randomUUID()
-      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-
-  downloadTokens.set(token, {
-    ip,
-    platform,
-    expiresAtMs: Date.now() + TOKEN_TTL_MS,
-    used: false,
-  });
-
-  return token;
+function base64urlEncode(buf) {
+  return Buffer.from(buf)
+    .toString("base64")
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replaceAll("=", "");
 }
 
-// Optional: tiny cleanup so the map doesn't grow forever
-function cleanupExpiredTokens() {
-  const now = Date.now();
-  for (const [token, meta] of downloadTokens.entries()) {
-    if (!meta || meta.used || meta.expiresAtMs <= now) {
-      downloadTokens.delete(token);
-    }
+function hmacSha256Base64Url(secret, message) {
+  const h = crypto.createHmac("sha256", secret);
+  h.update(message);
+  return base64urlEncode(h.digest());
+}
+
+function issueDownloadToken({ ip, platform }) {
+  const secret = String(process.env.DOWNLOAD_TOKEN_SECRET ?? "").trim();
+  if (!secret || secret.length < 32) {
+    throw new Error("DOWNLOAD_TOKEN_SECRET missing/too short");
   }
+
+  const payload = {
+    ip,
+    platform,
+    exp: Date.now() + TOKEN_TTL_MS,
+    jti: crypto.randomBytes(12).toString("hex"),
+  };
+
+  const body = base64urlEncode(JSON.stringify(payload));
+  const sig = hmacSha256Base64Url(secret, body);
+
+  return `${body}.${sig}`;
 }
 
 export async function POST(req) {
-  cleanupExpiredTokens();
-
   const ip = getClientIp(req);
   const now = Date.now();
 
@@ -60,7 +59,6 @@ export async function POST(req) {
     lockedUntilMs: 0,
   };
 
-  // Hard lock after 5 failed attempts (server-side lock 10 minutes)
   if (record.lockedUntilMs && now < record.lockedUntilMs) {
     return NextResponse.json(
       { ok: false, reason: "locked", lockedForMs: record.lockedUntilMs - now },
@@ -68,7 +66,6 @@ export async function POST(req) {
     );
   }
 
-  // Enforce 2s spacing between attempts (server-side too)
   if (now - record.lastAttemptMs < 2000) {
     return NextResponse.json(
       { ok: false, reason: "cooldown", waitMs: 2000 - (now - record.lastAttemptMs) },
@@ -85,10 +82,8 @@ export async function POST(req) {
   const isOk = expected.length > 0 && incomingPin === expected;
 
   if (isOk) {
-    // reset attempt limiter on success
     attemptsByIp.delete(ip);
 
-    // issue short-lived tokens for downloads
     const androidToken = issueDownloadToken({ ip, platform: "android" });
     const iosToken = issueDownloadToken({ ip, platform: "ios" });
 
@@ -100,11 +95,8 @@ export async function POST(req) {
     });
   }
 
-  // failed attempt
   record.count += 1;
-
   if (record.count >= 5) {
-    // lock for 10 minutes
     record.lockedUntilMs = now + 10 * 60 * 1000;
   }
 
@@ -115,5 +107,3 @@ export async function POST(req) {
     { status: 401 }
   );
 }
-
-export { downloadTokens };

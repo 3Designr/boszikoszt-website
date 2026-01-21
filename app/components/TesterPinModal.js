@@ -1,121 +1,234 @@
-// app/api/tester-pin/route.js
+// app/components/TesterPinModal.js
 
-import { NextResponse } from "next/server";
-import crypto from "node:crypto";
+"use client";
 
-// ========= Rate limit for PIN attempts =========
-const attemptsByIp = new Map();
-/**
- * attemptsByIp:
- * ip -> { count: number, lastAttemptMs: number, lockedUntilMs: number }
- */
+import { useEffect, useMemo, useState } from "react";
+import { useLang } from "@/app/lib/lang-context";
 
-const TOKEN_TTL_MS = 5 * 60 * 1000; // 5 minutes
+export default function TesterPinModal({ open, onClose }) {
+  const { t } = useLang();
 
-function getClientIp(req) {
-  const xff = req.headers.get("x-forwarded-for");
-  if (xff) return xff.split(",")[0].trim();
-  return "unknown";
-}
+  const [pin, setPin] = useState("");
+  const [status, setStatus] = useState("idle"); // idle | checking | error | locked | success
+  const [errorMsg, setErrorMsg] = useState("");
+  const [remaining, setRemaining] = useState(5);
 
-function base64urlEncode(buf) {
-  return Buffer.from(buf)
-    .toString("base64")
-    .replaceAll("+", "-")
-    .replaceAll("/", "_")
-    .replaceAll("=", "");
-}
+  const [cooldownUntil, setCooldownUntil] = useState(0);
+  const [lockedUntil, setLockedUntil] = useState(0);
 
-function base64urlEncodeString(str) {
-  return base64urlEncode(Buffer.from(str, "utf8"));
-}
+  const [androidToken, setAndroidToken] = useState("");
 
-function hmacSha256Base64Url(secret, message) {
-  const h = crypto.createHmac("sha256", secret);
-  h.update(message);
-  return base64urlEncode(h.digest());
-}
-
-function issueDownloadToken({ ip, platform }) {
-  const secret = String(process.env.DOWNLOAD_TOKEN_SECRET ?? "").trim();
-  if (!secret || secret.length < 32) {
-    throw new Error("DOWNLOAD_TOKEN_SECRET missing/too short");
-  }
-
-  const payload = {
-    ip,
-    platform, // "android" | "ios"
-    exp: Date.now() + TOKEN_TTL_MS,
-    // random id only for uniqueness/debug; not used for one-time enforcement
-    jti: crypto.randomBytes(12).toString("hex"),
-  };
-
-  const body = base64urlEncodeString(JSON.stringify(payload));
-  const sig = hmacSha256Base64Url(secret, body);
-
-  return `${body}.${sig}`;
-}
-
-export async function POST(req) {
-  const ip = getClientIp(req);
   const now = Date.now();
+  const isCoolingDown = now < cooldownUntil;
+  const isLocked = now < lockedUntil;
 
-  const record = attemptsByIp.get(ip) || {
-    count: 0,
-    lastAttemptMs: 0,
-    lockedUntilMs: 0,
-  };
+  const cooldownSecondsLeft = useMemo(() => {
+    if (!isCoolingDown) return 0;
+    return Math.ceil((cooldownUntil - now) / 1000);
+  }, [cooldownUntil, now, isCoolingDown]);
 
-  // Hard lock after 5 failed attempts (server-side lock 10 minutes)
-  if (record.lockedUntilMs && now < record.lockedUntilMs) {
-    return NextResponse.json(
-      { ok: false, reason: "locked", lockedForMs: record.lockedUntilMs - now },
-      { status: 429 }
-    );
+  const lockedSecondsLeft = useMemo(() => {
+    if (!isLocked) return 0;
+    return Math.ceil((lockedUntil - now) / 1000);
+  }, [lockedUntil, now, isLocked]);
+
+  useEffect(() => {
+    if (!open) {
+      setPin("");
+      setStatus("idle");
+      setErrorMsg("");
+      setRemaining(5);
+      setCooldownUntil(0);
+      setLockedUntil(0);
+      setAndroidToken("");
+    }
+  }, [open]);
+
+  // Refresh countdown display
+  useEffect(() => {
+    if (!open) return;
+    const id = setInterval(() => {
+      setCooldownUntil((v) => v);
+      setLockedUntil((v) => v);
+    }, 250);
+    return () => clearInterval(id);
+  }, [open]);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (isLocked || isCoolingDown) return;
+
+    if (!pin.trim()) {
+      setStatus("error");
+      setErrorMsg(t("testerModal.errorEmpty"));
+      return;
+    }
+
+    // client cooldown
+    setCooldownUntil(Date.now() + 2000);
+    setStatus("checking");
+    setErrorMsg("");
+
+    try {
+      const res = await fetch("/api/tester-pin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin: pin.trim() }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (res.ok && data.ok) {
+        setAndroidToken(String(data.androidToken || ""));
+        setStatus("success");
+        setErrorMsg("");
+        return;
+      }
+
+      // rate limits
+      if (res.status === 429) {
+        if (data?.reason === "cooldown") {
+          const waitMs = Number(data?.waitMs || 2000);
+          setCooldownUntil(Date.now() + waitMs);
+          setStatus("error");
+          setErrorMsg(t("testerModal.errorCooldown"));
+          return;
+        }
+        if (data?.reason === "locked") {
+          const lockedForMs = Number(data?.lockedForMs || 600000);
+          setLockedUntil(Date.now() + lockedForMs);
+          setStatus("locked");
+          setErrorMsg(t("testerModal.errorLocked"));
+          return;
+        }
+      }
+
+      // invalid pin
+      const nextRemaining =
+        typeof data?.remaining === "number" ? data.remaining : Math.max(0, remaining - 1);
+
+      setRemaining(nextRemaining);
+
+      if (nextRemaining <= 0) {
+        setLockedUntil(Date.now() + 10 * 60 * 1000);
+        setStatus("locked");
+        setErrorMsg(t("testerModal.errorLocked"));
+      } else {
+        setStatus("error");
+        setErrorMsg(t("testerModal.errorInvalid"));
+      }
+    } catch {
+      setStatus("error");
+      setErrorMsg(t("testerModal.errorNetwork"));
+    }
   }
 
-  // Enforce 2s spacing between attempts (server-side too)
-  if (now - record.lastAttemptMs < 2000) {
-    return NextResponse.json(
-      { ok: false, reason: "cooldown", waitMs: 2000 - (now - record.lastAttemptMs) },
-      { status: 429 }
-    );
-  }
+  if (!open) return null;
 
-  record.lastAttemptMs = now;
+  const androidHref = androidToken
+    ? `/api/download/android?token=${encodeURIComponent(androidToken)}`
+    : "#";
 
-  const body = await req.json().catch(() => ({}));
-  const incomingPin = String(body?.pin ?? "").trim();
-  const expected = String(process.env.TESTER_PIN ?? "").trim();
+  return (
+    <div className="fixed inset-0 z-[999] flex items-center justify-center px-4">
+      {/* Backdrop */}
+      <button
+        aria-label={t("testerModal.close")}
+        onClick={onClose}
+        className="absolute inset-0 bg-black/70"
+      />
 
-  const isOk = expected.length > 0 && incomingPin === expected;
+      <div className="relative w-full max-w-md rounded-2xl border border-gray-700 bg-zinc-900 p-6 shadow-xl">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h3 className="text-xl font-bold text-white">{t("testerModal.title")}</h3>
+            <p className="mt-1 text-sm text-gray-300">{t("testerModal.subtitle")}</p>
+          </div>
 
-  if (isOk) {
-    // reset attempt limiter on success
-    attemptsByIp.delete(ip);
+          <button
+            onClick={onClose}
+            className="text-gray-300 hover:text-white transition"
+            aria-label={t("testerModal.close")}
+          >
+            ✕
+          </button>
+        </div>
 
-    const androidToken = issueDownloadToken({ ip, platform: "android" });
-    const iosToken = issueDownloadToken({ ip, platform: "ios" });
+        {status === "success" ? (
+          <div className="mt-6 space-y-3">
+            <p className="text-sm text-gray-200">{t("testerModal.successText")}</p>
 
-    return NextResponse.json({
-      ok: true,
-      androidToken,
-      iosToken,
-      TOKEN_TTL_MS,
-    });
-  }
+            <a
+              href={androidHref}
+              className="block w-full text-center rounded-xl bg-green-600 py-3 font-semibold text-white hover:bg-green-700 transition"
+            >
+              {t("testerModal.downloadAndroid")}
+            </a>
 
-  // failed attempt
-  record.count += 1;
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full rounded-xl border border-gray-700 py-3 font-semibold text-gray-200 hover:bg-white/5 transition"
+            >
+              {t("testerModal.close")}
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+            <div>
+              <label className="block text-sm text-gray-300 mb-2">
+                {t("testerModal.pinLabel")}
+              </label>
 
-  if (record.count >= 5) {
-    record.lockedUntilMs = now + 10 * 60 * 1000;
-  }
+              <input
+                type="password"
+                inputMode="numeric"
+                value={pin}
+                onChange={(e) => setPin(e.target.value)}
+                className="w-full rounded-xl border border-gray-700 bg-black/40 px-4 py-3 text-white outline-none focus:border-red-600"
+                placeholder={t("testerModal.pinPlaceholder")}
+                disabled={status === "checking" || isLocked}
+              />
+            </div>
 
-  attemptsByIp.set(ip, record);
+            {errorMsg ? <div className="text-sm text-red-400">{errorMsg}</div> : null}
 
-  return NextResponse.json(
-    { ok: false, reason: "invalid", remaining: Math.max(0, 5 - record.count) },
-    { status: 401 }
+            <div className="flex items-center justify-between text-xs text-gray-400">
+              <span>
+                {t("testerModal.remaining")}: {Math.max(0, remaining)}
+              </span>
+
+              {isLocked ? (
+                <span>
+                  {t("testerModal.lockedFor")}: {lockedSecondsLeft}s
+                </span>
+              ) : isCoolingDown ? (
+                <span>
+                  {t("testerModal.tryAgainIn")}: {cooldownSecondsLeft}s
+                </span>
+              ) : (
+                <span>{t("testerModal.limitNote")}</span>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              disabled={status === "checking" || isLocked || isCoolingDown}
+              className="w-full rounded-xl bg-red-600 py-3 font-semibold text-white hover:bg-red-700 transition disabled:opacity-50 disabled:hover:bg-red-600"
+            >
+              {status === "checking" ? t("testerModal.checking") : t("testerModal.submit")}
+            </button>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full rounded-xl border border-gray-700 py-3 font-semibold text-gray-200 hover:bg-white/5 transition"
+            >
+              {t("testerModal.cancel")}
+            </button>
+          </form>
+        )}
+      </div>
+    </div>
   );
 }

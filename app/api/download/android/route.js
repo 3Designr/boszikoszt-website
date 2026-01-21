@@ -1,5 +1,3 @@
-// app/api/download/android/route.js
-
 import { NextResponse } from "next/server";
 import crypto from "node:crypto";
 
