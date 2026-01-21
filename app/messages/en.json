@@ -1,18 +1,33 @@
 {
   "hero.brand": "Boszikoszt",
   "hero.tagline": "Authentic Hungarian food – made with love",
-  "hero.appNotice": "We are moving to a mobile app – launching on Android, 1st September!",
+  "hero.appNotice": "We are moving to a mobile app – Android launch: February 1!",
   "hero.testerCta": "Want to become a tester? Click here.",
+  "hero.imageAlt": "Hungarian Goulash",
+
+  "about.title": "Who We Are",
+  "about.body": "Boszikoszt brings traditional Hungarian flavors to your table in the UK. Freshly prepared, hearty, and always authentic – just like home.",
+
+  "menu.title": "Our Menu",
+  "menu.body": "Weekly trays, soups, and daily specials. From roasted chicken to a delicious Hungarian sausage, we deliver comfort food that feels like family.",
+  "menu.imageAlt": "Hungarian Tray",
+
+  "contact.title": "Get in Touch",
+  "contact.location": "London, United Kingdom",
+
+  "social.facebookLabel": "Open Facebook",
+  "social.instagramLabel": "Open Instagram",
+
+  "footer.rights": "All rights reserved.",
 
   "testerModal.title": "Tester Access",
-  "testerModal.subtitle": "Enter the PIN to access the tester signup.",
+  "testerModal.subtitle": "Enter the PIN to access the tester downloads.",
   "testerModal.pinLabel": "PIN",
   "testerModal.pinPlaceholder": "Enter PIN",
   "testerModal.submit": "Continue",
   "testerModal.checking": "Checking…",
   "testerModal.cancel": "Cancel",
   "testerModal.close": "Close",
-  "testerModal.successText": "Success! Choose your platform with the buttons below:",
 
   "testerModal.remaining": "Attempts",
   "testerModal.tryAgainIn": "Try again in",
@@ -24,6 +39,8 @@
   "testerModal.errorCooldown": "Too fast. Wait 2 seconds.",
   "testerModal.errorLocked": "Too many attempts. Temporarily locked.",
   "testerModal.errorNetwork": "Network error. Please try again.",
-  "testerModal.downloadAndroid": "Download Android app",
-  "testerModal.downloadIOS": "Download iOS app"
+
+  "testerModal.successText": "PIN accepted. Download your build:",
+  "testerModal.downloadAndroid": "Download Android app (APK)",
+  "testerModal.downloadIOS": "Download iOS app (IPA)"
 }
