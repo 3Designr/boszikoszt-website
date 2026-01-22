@@ -1,3 +1,5 @@
+// app/api/tester-pin/route.js
+
 import { NextResponse } from "next/server";
 import crypto from "node:crypto";
 
@@ -8,6 +10,7 @@ const attemptsByIp = new Map();
  * ip -> { count: number, lastAttemptMs: number, lockedUntilMs: number }
  */
 
+// Token settings
 const TOKEN_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 function getClientIp(req) {
@@ -43,14 +46,15 @@ function issueDownloadToken({ ip, platform }) {
     jti: crypto.randomBytes(12).toString("hex"),
   };
 
+  // Note: JSON is ASCII-safe here; we sign the base64url string
   const body = base64urlEncode(JSON.stringify(payload));
   const sig = hmacSha256Base64Url(secret, body);
   return `${body}.${sig}`;
 }
 
 /**
- * DEBUG: open this in browser to confirm envs are loaded in PROD.
- * This does NOT expose the PIN.
+ * DEBUG: open in browser to confirm envs are loaded in PROD.
+ * Does NOT expose the PIN.
  */
 export async function GET() {
   const rawPin = process.env.TESTER_PIN;
@@ -68,6 +72,7 @@ export async function GET() {
     lastChar: pin ? pin.slice(-1) : null,
     hasDownloadSecret: secret.length >= 32,
     downloadSecretLength: secret.length,
+    TOKEN_TTL_MS,
   });
 }
 
@@ -106,8 +111,10 @@ export async function POST(req) {
   const isOk = expected.length > 0 && incomingPin === expected;
 
   if (isOk) {
+    // reset attempt limiter on success
     attemptsByIp.delete(ip);
 
+    // issue short-lived tokens for downloads
     const androidToken = issueDownloadToken({ ip, platform: "android" });
     const iosToken = issueDownloadToken({ ip, platform: "ios" });
 
@@ -121,7 +128,9 @@ export async function POST(req) {
 
   // failed attempt
   record.count += 1;
+
   if (record.count >= 5) {
+    // lock for 10 minutes
     record.lockedUntilMs = now + 10 * 60 * 1000;
   }
 

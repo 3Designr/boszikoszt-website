@@ -174,6 +174,7 @@ export default function TesterPinModal({ open, onClose }) {
             </button>
           </div>
         ) : (
+          // PIN FORM UI
           <form onSubmit={handleSubmit} className="mt-5 space-y-4">
             <div>
               <label className="block text-sm text-gray-300 mb-2">
