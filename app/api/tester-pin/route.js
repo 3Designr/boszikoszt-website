@@ -38,15 +38,37 @@ function issueDownloadToken({ ip, platform }) {
 
   const payload = {
     ip,
-    platform,
+    platform, // "android" | "ios"
     exp: Date.now() + TOKEN_TTL_MS,
     jti: crypto.randomBytes(12).toString("hex"),
   };
 
   const body = base64urlEncode(JSON.stringify(payload));
   const sig = hmacSha256Base64Url(secret, body);
-
   return `${body}.${sig}`;
+}
+
+/**
+ * DEBUG: open this in browser to confirm envs are loaded in PROD.
+ * This does NOT expose the PIN.
+ */
+export async function GET() {
+  const rawPin = process.env.TESTER_PIN;
+  const pin = typeof rawPin === "string" ? rawPin.trim() : "";
+
+  const rawSecret = process.env.DOWNLOAD_TOKEN_SECRET;
+  const secret = typeof rawSecret === "string" ? rawSecret.trim() : "";
+
+  return NextResponse.json({
+    ok: true,
+    env: process.env.VERCEL_ENV || "unknown",
+    hasPin: pin.length > 0,
+    pinLength: pin.length,
+    firstChar: pin ? pin[0] : null,
+    lastChar: pin ? pin.slice(-1) : null,
+    hasDownloadSecret: secret.length >= 32,
+    downloadSecretLength: secret.length,
+  });
 }
 
 export async function POST(req) {
@@ -59,6 +81,7 @@ export async function POST(req) {
     lockedUntilMs: 0,
   };
 
+  // Hard lock after 5 failed attempts (server-side lock 10 minutes)
   if (record.lockedUntilMs && now < record.lockedUntilMs) {
     return NextResponse.json(
       { ok: false, reason: "locked", lockedForMs: record.lockedUntilMs - now },
@@ -66,6 +89,7 @@ export async function POST(req) {
     );
   }
 
+  // Enforce 2s spacing between attempts (server-side too)
   if (now - record.lastAttemptMs < 2000) {
     return NextResponse.json(
       { ok: false, reason: "cooldown", waitMs: 2000 - (now - record.lastAttemptMs) },
@@ -95,6 +119,7 @@ export async function POST(req) {
     });
   }
 
+  // failed attempt
   record.count += 1;
   if (record.count >= 5) {
     record.lockedUntilMs = now + 10 * 60 * 1000;
