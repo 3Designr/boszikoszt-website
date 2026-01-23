@@ -2,7 +2,7 @@
   "hero.brand": "Boszikoszt",
   "hero.tagline": "Autentikus magyar ételek – szeretettel készítve",
   "hero.appNotice": "Mobilalkalmazásra váltunk – Android indulás: Február 1!",
-  "hero.testerCta": "Szeretnél tesztelő lenni? Kattints ide.",
+  "hero.testerCta": "Az applikáció letöltéséhez kattints ide.",
   "hero.imageAlt": "Magyar gulyás",
 
   "about.title": "Kik vagyunk",
@@ -20,8 +20,8 @@
 
   "footer.rights": "Minden jog fenntartva.",
 
-  "testerModal.title": "Tesztelői hozzáférés",
-  "testerModal.subtitle": "Add meg a PIN-kódot a tesztelői letöltésekhez.",
+  "testerModal.title": "Hozzáférés az apphoz",
+  "testerModal.subtitle": "Add meg a PIN-kódot az alkalmazás letöltéséhez.",
   "testerModal.pinLabel": "PIN-kód",
   "testerModal.pinPlaceholder": "Írd be a PIN-t",
   "testerModal.submit": "Tovább",

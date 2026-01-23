@@ -2,7 +2,7 @@
   "hero.brand": "Boszikoszt",
   "hero.tagline": "Authentic Hungarian food – made with love",
   "hero.appNotice": "We are moving to a mobile app – Android launch: February 1!",
-  "hero.testerCta": "Want to become a tester? Click here.",
+  "hero.testerCta": "Click here to download the app.",
   "hero.imageAlt": "Hungarian Goulash",
 
   "about.title": "Who We Are",
@@ -20,8 +20,8 @@
 
   "footer.rights": "All rights reserved.",
 
-  "testerModal.title": "Tester Access",
-  "testerModal.subtitle": "Enter the PIN to access the tester downloads.",
+  "testerModal.title": "Access for app",
+  "testerModal.subtitle": "Enter the PIN to access the app downloads.",
   "testerModal.pinLabel": "PIN",
   "testerModal.pinPlaceholder": "Enter PIN",
   "testerModal.submit": "Continue",

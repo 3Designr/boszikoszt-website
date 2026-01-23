@@ -13,7 +13,7 @@ export default function Home() {
   const [pinOpen, setPinOpen] = useState(false);
 
   // Put your tester signup form here (optional)
-  const testerFormUrl = ""; // e.g. "https://forms.gle/xxxx"
+  const testerFormUrl = "";
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center text-white">
