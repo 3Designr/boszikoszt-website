@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useState } from "react";
 import { FaFacebook, FaInstagram, FaPhone, FaMapMarkerAlt } from "react-icons/fa";
 import { MdEmail } from "react-icons/md";
+import Link from "next/link";
 import { useLang } from "@/app/lib/lang-context";
 import LangSwitch from "@/app/components/lang-switch";
 import TesterPinModal from "@/app/components/TesterPinModal";
@@ -12,7 +13,6 @@ export default function Home() {
   const { t } = useLang();
   const [pinOpen, setPinOpen] = useState(false);
 
-  // Put your tester signup form here (optional)
   const testerFormUrl = "";
 
   return (
@@ -31,7 +31,6 @@ export default function Home() {
           {t("hero.appNotice")}
         </p>
 
-        {/* Tester CTA -> opens PIN modal */}
         <button
           type="button"
           onClick={() => setPinOpen(true)}
@@ -52,7 +51,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* About Section */}
+      {/* About */}
       <section className="w-full max-w-3xl text-center py-12 px-4">
         <h2 className="text-3xl font-bold mb-4 text-red-600">
           {t("about.title")}
@@ -60,7 +59,7 @@ export default function Home() {
         <p className="text-lg text-gray-300">{t("about.body")}</p>
       </section>
 
-      {/* Menu Section */}
+      {/* Menu */}
       <section className="w-full max-w-3xl text-center py-12 px-4">
         <h2 className="text-3xl font-bold mb-4 text-red-600">
           {t("menu.title")}
@@ -76,7 +75,7 @@ export default function Home() {
         />
       </section>
 
-      {/* Contact Section */}
+      {/* Contact */}
       <section className="w-full max-w-3xl text-center py-12 px-4">
         <h2 className="text-3xl font-bold mb-4 text-red-600">
           {t("contact.title")}
@@ -96,29 +95,37 @@ export default function Home() {
 
         <div className="flex justify-center space-x-6 mt-6">
           <a
-            aria-label={t("social.facebookLabel")}
             href="https://www.facebook.com/Boszikoszt"
             target="_blank"
             rel="noopener noreferrer"
           >
-            <FaFacebook size={30} className="hover:text-blue-500 transition-colors" />
+            <FaFacebook size={30} className="hover:text-blue-500 transition" />
           </a>
           <a
-            aria-label={t("social.instagramLabel")}
             href="https://www.instagram.com/boszikoszt/"
             target="_blank"
             rel="noopener noreferrer"
           >
-            <FaInstagram size={30} className="hover:text-pink-500 transition-colors" />
+            <FaInstagram size={30} className="hover:text-pink-500 transition" />
           </a>
         </div>
       </section>
 
-      <footer className="w-full text-center py-6 border-t border-gray-700 mt-8 text-sm text-gray-400">
-        © {new Date().getFullYear()} {t("hero.brand")} – {t("footer.rights")}
+      {/* Footer */}
+      <footer className="w-full text-center py-6 border-t border-gray-700 mt-8 text-sm text-gray-400 flex flex-col gap-2">
+        <span>
+          © {new Date().getFullYear()} {t("hero.brand")} – {t("footer.rights")}
+        </span>
+
+        {/* Policy link */}
+        <Link
+          href="/policy"
+          className="text-blue-400 hover:text-blue-300 underline"
+        >
+          Privacy Policy
+        </Link>
       </footer>
 
-      {/* PIN Modal */}
       <TesterPinModal
         open={pinOpen}
         onClose={() => setPinOpen(false)}
