@@ -15,6 +15,9 @@ export default function Home() {
 
   const testerFormUrl = "";
 
+  // ✅ PDF path (from /public)
+  const pdfHref = "/boszikoszt-2026.pdf";
+
   return (
     <main className="min-h-screen flex flex-col items-center justify-center text-white">
       <LangSwitch />
@@ -114,10 +117,18 @@ export default function Home() {
       {/* Footer */}
       <footer className="w-full text-center py-6 border-t border-gray-700 mt-8 text-sm text-gray-400 flex flex-col gap-2">
         <span>
-          © {new Date().getFullYear()} {t("hero.brand")} – {t("footer.rights")}
+          ©{" "}
+          <a
+            href={pdfHref}
+            download
+            className="underline hover:text-gray-200 transition"
+            title="Download PDF"
+          >
+            2026
+          </a>{" "}
+          {t("hero.brand")} – {t("footer.rights")}
         </span>
 
-        {/* Policy link */}
         <Link
           href="/policy"
           className="text-blue-400 hover:text-blue-300 underline"
